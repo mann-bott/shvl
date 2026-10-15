@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# SHVL Master Interactive TUI Dashboard
+# Architecture inspired by William Old & Alpine SSH
+# ==============================================================================
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m'
+BOLD='\033[1m'
+
+check_status() {
+    local s="$1"
+    if systemctl is-active --quiet "$s" 2>/dev/null; then
+        echo -e "${GREEN}RUNNING${NC}"
+    else
+        echo -e "${RED}STOPPED${NC}"
+    fi
+}
+
+get_ip() {
+    curl -s --connect-timeout 2 ifconfig.me 2>/dev/null || curl -s --connect-timeout 2 icanhazip.com 2>/dev/null || echo "127.0.0.1"
+}
+
+get_domain() {
+    if [ -f /etc/shvl/domain ]; then
+        head -n 1 /etc/shvl/domain
+    else
+        get_ip
+    fi
+}
+
+show_menu() {
+    clear
+    local DOMAIN=$(get_domain)
+    local IP=$(get_ip)
+    local OS_NAME=$(grep -oP '(?<=PRETTY_NAME=).+' /etc/os-release 2>/dev/null | tr -d '"' || echo "Ubuntu / Debian")
+    local RAM_USED=$(free -m 2>/dev/null | awk '/Mem:/ {print $3}')
+    local RAM_TOTAL=$(free -m 2>/dev/null | awk '/Mem:/ {print $2}')
+    local UPTIME=$(uptime -p 2>/dev/null | sed 's/up //')
+
+    local ST_DB=$(check_status dropbear)
+    local ST_WS=$(check_status ssh-ws)
+    local ST_XR=$(check_status xray)
+    local ST_HA=$(check_status haproxy)
+    local ST_OV=$(check_status openvpn)
+    local ST_SQ=$(check_status squid)
+    local ST_LM=$(check_status shvl-limiter)
+
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e " ${BOLD}${PURPLE}             SHVL TUNNEL SYSTEM - MAIN DASHBOARD                ${NC}"
+    echo -e " ${CYAN}           Target OS: Ubuntu 24.04 LTS & Debian 13             ${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "  ${WHITE}OS Server${NC}   : ${GREEN}$OS_NAME${NC}"
+    echo -e "  ${WHITE}IP Address${NC}  : ${GREEN}$IP${NC}"
+    echo -e "  ${WHITE}Host / Domain${NC}: ${GREEN}$DOMAIN${NC}"
+    echo -e "  ${WHITE}RAM Usage${NC}   : ${GREEN}${RAM_USED:-0} MB / ${RAM_TOTAL:-0} MB${NC}"
+    echo -e "  ${WHITE}Uptime${NC}      : ${GREEN}${UPTIME:-Running}${NC}"
+    echo -e "${CYAN}────────────────────────────────────────────────────────────────${NC}"
+    echo -e "  ${WHITE}Dropbear${NC}    : $ST_DB       |  ${WHITE}SSH-WS Proxy${NC}  : $ST_WS"
+    echo -e "  ${WHITE}Xray VLESS${NC}  : $ST_XR       |  ${WHITE}HAProxy Mux${NC}   : $ST_HA"
+    echo -e "  ${WHITE}OpenVPN TCP${NC} : $ST_OV       |  ${WHITE}Squid Proxy${NC}   : $ST_SQ"
+    echo -e "  ${WHITE}IP Limiter${NC}  : $ST_LM (Cooldown 5 Menit Auto-Unlock)"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e " ${BOLD}${YELLOW}[ MENU PROTOKOL VPN ]${NC}"
+    echo -e "  ${GREEN}[1]${NC} MENU SSH & WEBSOCKET       [Dropbear, Direct SSL, WS HTTP/TLS]"
+    echo -e "  ${GREEN}[2]${NC} MENU VLESS                 [WebSocket, HttpUpgrade, XHTTP]"
+    echo -e ""
+    echo -e " ${BOLD}${YELLOW}[ OPERASIONAL SELLER VPN ]${NC}"
+    echo -e "  ${GREEN}[3]${NC} Recovery Akun Expired      [shvl recovery]"
+    echo -e "  ${GREEN}[4]${NC} Reset Kuota Penggunaan     [shvl reset-quota]"
+    echo -e "  ${GREEN}[5]${NC} Ban / Kunci Akun Pengguna  [shvl ban]"
+    echo -e "  ${GREEN}[6]${NC} Unban / Buka Kunci Akun    [shvl unban]"
+    echo -e ""
+    echo -e " ${BOLD}${YELLOW}[ SISTEM & PENGATURAN ]${NC}"
+    echo -e "  ${GREEN}[7]${NC} Ganti Domain & SSL         [shvl domain]"
+    echo -e "  ${GREEN}[8]${NC} Perbarui Sertifikat SSL    [shvl cert renew]"
+    echo -e "  ${GREEN}[9]${NC} Cek Multi-Login Limiter    [shvl limit]"
+    echo -e "  ${GREEN}[10]${NC} Bersihkan Akun Expired    [shvl xp]"
+    echo -e "  ${GREEN}[11]${NC} Backup Sistem ke Telegram [shvl backup]"
+    echo -e "  ${GREEN}[12]${NC} Restore Sistem            [shvl restore]"
+    echo -e "  ${GREEN}[13]${NC} Konfigurasi Bot Telegram  [shvl telegram]"
+    echo -e "  ${GREEN}[14]${NC} Restart Semua Service     [shvl restart]"
+    echo -e "  ${GREEN}[15]${NC} Reboot VPS"
+    echo -e "  ${GREEN}[0]${NC} Keluar"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -ne " ${BOLD}Pilih menu [0-15]: ${NC}"
+    read -r opt
+
+    case "$opt" in
+        1|ssh|menu-ssh)
+            menu-ssh
+            ;;
+        2|vless|menu-vless)
+            menu-vless
+            ;;
+        3|recovery|rec)
+            /usr/local/bin/shvl recovery
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        4|reset-quota|reset)
+            /usr/local/bin/shvl reset-quota
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        5|ban|lock)
+            /usr/local/bin/shvl ban
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        6|unban|unlock)
+            /usr/local/bin/shvl unban
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        7|domain)
+            /usr/local/bin/shvl domain
+            ;;
+        8|cert|renew-cert)
+            /usr/local/bin/renew-cert
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        9|limit|ceklim)
+            /usr/local/bin/shvl limit
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        10|xp|expired)
+            /usr/local/bin/shvl xp
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        11|backup)
+            /usr/local/bin/shvl backup
+            ;;
+        12|restore)
+            /usr/local/bin/shvl restore
+            ;;
+        13|telegram|bot)
+            /usr/local/bin/shvl telegram
+            ;;
+        14|restart)
+            /usr/local/bin/shvl restart
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        15|reboot)
+            echo -ne "Yakin ingin reboot VPS? (y/n): "
+            read -r ans
+            if [[ "$ans" =~ ^[Yy]$ ]]; then
+                reboot
+            fi
+            ;;
+        0|x|X|q|exit)
+            clear
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Pilihan tidak valid!${NC}"
+            sleep 1
+            ;;
+    esac
+}
+
+while true; do
+    show_menu
+done

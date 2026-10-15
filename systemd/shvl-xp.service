@@ -1,0 +1,7 @@
+[Unit]
+Description=SHVL Daily Expired Accounts Cleaner Service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/shvl xp

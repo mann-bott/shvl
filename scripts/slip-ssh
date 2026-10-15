@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+if [ -z "$1" ]; then
+    echo -ne "Masukkan username SSH: "
+    read -r user
+    [ -n "$user" ] && /usr/local/bin/shvl slip-ssh "$user"
+else
+    /usr/local/bin/shvl slip-ssh "$1"
+fi

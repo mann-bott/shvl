@@ -1,0 +1,20 @@
+# Source code (Binary-only distribution, zero compilation on target VPS)
+src/
+c-websocket-proxy/
+include/
+Makefile
+build-static.sh
+
+# Build outputs & archive packages
+dist/
+*.o
+*.a
+*.tar.gz
+*.zip
+
+# Local environment & editor files
+.qwen/
+.vscode/
+.idea/
+*.swp
+*.bak

@@ -1,0 +1,16 @@
+[Unit]
+Description=Dropbear Lightweight SSH Server (SHVL Static)
+Documentation=man:dropbear(8)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/dropbear -F -p 143 -W 65536 -p 109 -b /etc/shvl/issue.net
+KillMode=process
+Restart=on-failure
+RestartPreventExitStatus=23
+LimitNPROC=10000
+LimitNOFILE=1000000
+
+[Install]
+WantedBy=multi-user.target

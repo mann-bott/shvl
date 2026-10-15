@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# SHVL - SSL Certificate Renew & Installation Utility
+# Target: Ubuntu 24.04 & Debian 13
+# ==============================================================================
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+clear 2>/dev/null || true
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "         ${GREEN}◈ SHVL SSL CERTIFICATE RENEW & MANAGER ◈${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+DOMAIN=""
+if [ -f /etc/shvl/domain ]; then
+    DOMAIN=$(tr -d ' \r\n' < /etc/shvl/domain)
+elif [ -f /etc/xray/domain ]; then
+    DOMAIN=$(tr -d ' \r\n' < /etc/xray/domain)
+fi
+
+if [ -z "$DOMAIN" ]; then
+    echo -e "${RED}[ERROR] File domain tidak ditemukan di /etc/shvl/domain!${NC}"
+    read -r -p "Masukkan domain VPS Anda: " input_domain
+    DOMAIN=$(echo "$input_domain" | tr -d ' \r\n')
+    if [ -z "$DOMAIN" ]; then
+        echo -e "${RED}[ABORT] Domain kosong. Batalkan.${NC}"
+        exit 1
+    fi
+    mkdir -p /etc/shvl /etc/xray
+    echo "$DOMAIN" > /etc/shvl/domain
+    echo "$DOMAIN" > /etc/xray/domain
+fi
+
+echo -e "Domain Terdeteksi: ${YELLOW}$DOMAIN${NC}\n"
+
+mkdir -p /etc/shvl/ssl /etc/ssl/private /etc/xray
+chmod 700 /etc/ssl/private 2>/dev/null || true
+
+if [ ! -f /root/.acme.sh/acme.sh ]; then
+    echo -e "${YELLOW}[INFO] Mengunduh acme.sh...${NC}"
+    curl -s https://get.acme.sh | sh
+fi
+
+echo -e "${YELLOW}[1/4] Menghentikan sementara haproxy untuk verifikasi ACME port 80...${NC}"
+systemctl stop haproxy 2>/dev/null || true
+sleep 1
+
+echo -e "${YELLOW}[2/4] Menerbitkan / memperbarui sertifikat Let's Encrypt...${NC}"
+/root/.acme.sh/acme.sh --set-default-ca --server letsencrypt >/dev/null 2>&1 || true
+
+if ! /root/.acme.sh/acme.sh --renew -d "$DOMAIN" --ecc --force; then
+    echo -e "${YELLOW}[INFO] Mencoba issue standalone ec-256...${NC}"
+    /root/.acme.sh/acme.sh --issue -d "$DOMAIN" --standalone --keylength ec-256 --force || true
+fi
+
+echo -e "${YELLOW}[3/4] Memasang sertifikat ke direktori sistem...${NC}"
+# Copy langsung dari direktori acme.sh jika tersedia
+if [ -s "/root/.acme.sh/${DOMAIN}_ecc/fullchain.cer" ]; then
+    cp -f "/root/.acme.sh/${DOMAIN}_ecc/fullchain.cer" /etc/shvl/ssl/fullchain.pem
+    cp -f "/root/.acme.sh/${DOMAIN}_ecc/${DOMAIN}.key" /etc/shvl/ssl/privkey.pem
+elif [ -s "/root/.acme.sh/${DOMAIN}/fullchain.cer" ]; then
+    cp -f "/root/.acme.sh/${DOMAIN}/fullchain.cer" /etc/shvl/ssl/fullchain.pem
+    cp -f "/root/.acme.sh/${DOMAIN}/${DOMAIN}.key" /etc/shvl/ssl/privkey.pem
+else
+    /root/.acme.sh/acme.sh --install-cert -d "$DOMAIN" --ecc \
+        --fullchain-file /etc/shvl/ssl/fullchain.pem \
+        --key-file /etc/shvl/ssl/privkey.pem >/dev/null 2>&1 || true
+fi
+
+# Validasi ukuran: jika file tidak ada atau ukuran 0 byte, buat fallback self-signed
+if [ ! -s /etc/shvl/ssl/fullchain.pem ] || [ ! -s /etc/shvl/ssl/privkey.pem ]; then
+    echo -e "${RED}[WARNING] File sertifikat kosong/gagal, membuat SSL self-signed fallback...${NC}"
+    openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -days 365 -nodes -x509 \
+        -subj "/CN=$DOMAIN" -keyout /etc/shvl/ssl/privkey.pem -out /etc/shvl/ssl/fullchain.pem >/dev/null 2>&1
+fi
+
+cat /etc/shvl/ssl/fullchain.pem /etc/shvl/ssl/privkey.pem > /etc/shvl/shvl.pem
+chmod 600 /etc/shvl/shvl.pem /etc/shvl/ssl/privkey.pem
+chmod 644 /etc/shvl/ssl/fullchain.pem
+ln -sf /etc/shvl/shvl.pem /etc/haproxy/haproxy.pem 2>/dev/null || true
+
+cp -f /etc/shvl/ssl/fullchain.pem /etc/ssl/private/fullchain.pem
+cp -f /etc/shvl/ssl/privkey.pem /etc/ssl/private/privkey.pem
+chmod 600 /etc/ssl/private/privkey.pem
+chmod 644 /etc/ssl/private/fullchain.pem
+
+cp -f /etc/shvl/ssl/fullchain.pem /etc/xray/xray.crt
+cp -f /etc/shvl/ssl/privkey.pem /etc/xray/xray.key
+cp -f /etc/shvl/ssl/fullchain.pem /etc/xray/certinfo.crt
+cp -f /etc/shvl/ssl/privkey.pem /etc/xray/certinfo.key
+echo "$DOMAIN" > /etc/xray/domain
+chmod 600 /etc/xray/xray.key /etc/xray/certinfo.key
+chmod 644 /etc/xray/xray.crt /etc/xray/certinfo.crt
+
+echo -e "${YELLOW}[4/4] Menjalankan kembali layanan (HAProxy, Xray, SSH-WS)...${NC}"
+systemctl restart haproxy 2>/dev/null || true
+systemctl restart xray 2>/dev/null || true
+systemctl restart ssh-ws 2>/dev/null || true
+
+echo -e "\n${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "   ${GREEN}✔ SUKSES! Sertifikat SSL Diperbarui & Disinkronkan${NC}"
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e " Lokasi File:"
+echo -e "   • SHVL SSL     : /etc/shvl/ssl/fullchain.pem"
+echo -e "   • HAProxy PEM  : /etc/shvl/shvl.pem"
+echo -e "   • Standard SSL : /etc/ssl/private/fullchain.pem"
+echo -e "   • Xray Cert    : /etc/xray/xray.crt (/etc/xray/certinfo.crt)"
+echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e " Status Sertifikat:"
+openssl x509 -in /etc/shvl/ssl/fullchain.pem -noout -issuer -dates 2>/dev/null | sed 's/^/   /'
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"

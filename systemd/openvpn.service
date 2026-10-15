@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenVPN Server (SHVL TCP 1194 & 443)
+Documentation=https://openvpn.net
+After=network.target network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/sbin/openvpn --config /etc/openvpn/server.conf
+Restart=always
+RestartSec=3
+LimitNPROC=10000
+LimitNOFILE=1000000
+
+[Install]
+WantedBy=multi-user.target

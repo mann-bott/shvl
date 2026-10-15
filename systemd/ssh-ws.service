@@ -1,0 +1,16 @@
+[Unit]
+Description=SHVL Native WebSocket Proxy & BadVPN UDPGW
+Documentation=https://github.com/mann-bott/shvl
+After=network.target network-online.target dropbear.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/ssh-ws -p 10080 -t 127.0.0.1:109 --api-port 8081 --udpgw-port 7300 --auth-log /var/log/auth.log
+Restart=always
+RestartSec=3
+LimitNOFILE=1000000
+LimitNPROC=10000
+
+[Install]
+WantedBy=multi-user.target

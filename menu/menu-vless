@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# SHVL Dedicated VLESS Menu (WS / HttpUpgrade / XHTTP)
+# Reference Architecture: William Old & Alpine SSH
+# ==============================================================================
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m'
+BOLD='\033[1m'
+
+while true; do
+    clear
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e " ${BOLD}${YELLOW}         ⇱ SHVL MENU VLESS (WS / HTTPUPGRADE / XHTTP) ⇲         ${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "  ${GREEN}[•1]${NC}  Buat Akun VLESS Baru                ${CYAN}[add-vless]${NC}"
+    echo -e "  ${GREEN}[•2]${NC}  Buat Akun Trial VLESS (1 Hari)      ${CYAN}[trial-vless]${NC}"
+    echo -e "  ${GREEN}[•3]${NC}  Perpanjang Masa Aktif VLESS         ${CYAN}[renew-vless]${NC}"
+    echo -e "  ${GREEN}[•4]${NC}  Recovery Akun Expired               ${CYAN}[recovery]${NC}"
+    echo -e "  ${GREEN}[•5]${NC}  Hapus Akun VLESS                    ${CYAN}[del-vless]${NC}"
+    echo -e "  ${GREEN}[•6]${NC}  Reset Kuota Penggunaan Data         ${CYAN}[reset-quota]${NC}"
+    echo -e "  ${GREEN}[•7]${NC}  Ban / Kunci Akun Manual (5m/Perm)   ${CYAN}[ban]${NC}"
+    echo -e "  ${GREEN}[•8]${NC}  Unban / Buka Kunci Akun             ${CYAN}[unban]${NC}"
+    echo -e "  ${GREEN}[•9]${NC}  Cek User & Koneksi Aktif VLESS      ${CYAN}[cek-vless]${NC}"
+    echo -e "  ${GREEN}[•10]${NC} Daftar Semua Akun VLESS             ${CYAN}[list-vless]${NC}"
+    echo -e "  ${GREEN}[•11]${NC} Cetak Ulang Link & QR VLESS         ${CYAN}[slip-vless / detail]${NC}"
+    echo -e "  ${GREEN}[•12]${NC} Cek Status IP Limiter & Multi-Login ${CYAN}[ceklim / autokill]${NC}"
+    echo -e "  ${GREEN}[•x]${NC}  Kembali ke Menu Utama               ${CYAN}[x / 0]${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -ne "  ${BOLD}Pilih opsi [1-12 atau x]: ${NC}"
+    read -r opt
+
+    case "$opt" in
+        1|add-vless|add)
+            /usr/local/bin/shvl add-vless
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        2|trial-vless|trial)
+            /usr/local/bin/shvl trial-vless
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        3|renew-vless|renew)
+            /usr/local/bin/shvl renew-vless
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        4|recovery|rec)
+            /usr/local/bin/shvl recovery
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        5|del-vless|hapus|delete)
+            /usr/local/bin/shvl del-vless
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        6|reset-quota|reset)
+            /usr/local/bin/shvl reset-quota
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        7|ban|lock)
+            /usr/local/bin/shvl ban
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        8|unban|unlock)
+            /usr/local/bin/shvl unban
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        9|cek-vless|cek)
+            /usr/local/bin/cek-vless
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        10|list-vless|list)
+            /usr/local/bin/shvl list-vless
+            ;;
+        11|slip-vless|detail)
+            /usr/local/bin/shvl slip-vless
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        12|ceklim|autokill|limit)
+            /usr/local/bin/shvl limit
+            read -r -p "Tekan [ENTER] untuk kembali..."
+            ;;
+        0|x|X|exit|q)
+            break
+            ;;
+        *)
+            echo -e "${RED}Pilihan tidak valid!${NC}"
+            sleep 1
+            ;;
+    esac
+done

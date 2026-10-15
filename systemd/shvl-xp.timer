@@ -1,0 +1,10 @@
+[Unit]
+Description=SHVL Daily Expired Accounts Cleaner Timer
+After=network.target
+
+[Timer]
+OnCalendar=*-*-* 00:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

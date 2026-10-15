@@ -84,17 +84,24 @@ Sistem limiter mengadopsi mekanisme cerdas dari `alpine-ssh`:
 
 ## 📦 Pilihan Metode Instalasi (Ubuntu 24.04 & Debian 13)
 
-### 🌐 Opsi 1: Online Auto-Install (GitHub / Web Host)
-Jalankan satu perintah berikut sebagai `root`:
+### 🌐 Opsi 1: Online Auto-Install (One-Line Installer)
+Jalankan salah satu perintah berikut sebagai `root`:
 
 ```bash
-wget -qO install.sh https://raw.githubusercontent.com/risqinf/shvl/main/install.sh && bash install.sh
+wget -qO install.sh https://raw.githubusercontent.com/mann-bott/shvl/main/install.sh && bash install.sh
 ```
 
-### 🚀 Opsi 2: Instalasi Folder Lokal (Super Cepat ~ 10 Detik)
-Jika Anda mengunggah folder project ke VPS (via Git, SFTP, atau SCP):
+Atau menggunakan `curl`:
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/mann-bott/shvl/main/install.sh | bash
+```
+
+### 🚀 Opsi 2: Instalasi via Git Clone / Folder Lokal (Super Cepat ~ 10 Detik)
+Jika Anda meng-clone atau mengunggah folder project ke VPS:
+
+```bash
+git clone https://github.com/mann-bott/shvl.git /root/shvl
 cd /root/shvl
 chmod +x install.sh
 ./install.sh --local

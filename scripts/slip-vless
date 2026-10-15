@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+if [ -z "$1" ]; then
+    echo -ne "Masukkan username VLESS: "
+    read -r user
+    [ -n "$user" ] && /usr/local/bin/shvl slip-vless "$user"
+else
+    /usr/local/bin/shvl slip-vless "$1"
+fi
