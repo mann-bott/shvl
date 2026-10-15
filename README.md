@@ -37,7 +37,7 @@ SHVL difokuskan secara khusus hanya pada 6 protokol tunneling esensial dengan pe
 Semua lalu lintas masuk dimultipleks oleh **HAProxy** secara transparan dalam mode TCP berkecepatan tinggi:
 
 ```
-[ Port 80 (HTTP) ] ──> HAProxy ──┬──> [/.well-known/acme-challenge/] ──> ACME Standalone (:8080)
+[ Port 80 (HTTP) ] ──> HAProxy ──┬──> [/.well-known/acme-challenge/] ──> ACME Standalone (:18080)
                                  ├──> [/vless-ws]                     ──> Xray VLESS WS (:10001)
                                  ├──> [/vless-hu]                     ──> Xray VLESS HU (:10002)
                                  ├──> [/vless-xhttp]                  ──> Xray VLESS XHTTP (:10003)

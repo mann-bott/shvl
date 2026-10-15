@@ -181,13 +181,13 @@ print_ok "Domain yang digunakan: $DOMAIN"
 print_info "Memperbarui paket sistem & menginstal dependensi runtime..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y >/dev/null 2>&1 || true
-apt-get install -y haproxy openvpn squid curl wget jq socat cron net-tools iptables zip unzip python3 >/dev/null 2>&1 || {
+apt-get install -y haproxy openvpn squid curl wget jq socat cron net-tools iptables zip unzip python3 psmisc >/dev/null 2>&1 || {
     print_warn "Percobaan pertama apt gagal, mencoba sekali lagi..."
-    apt-get install -y haproxy openvpn squid curl wget jq socat cron net-tools iptables zip unzip python3 || true
+    apt-get install -y haproxy openvpn squid curl wget jq socat cron net-tools iptables zip unzip python3 psmisc || true
 }
 
 # Stop conflicting default services if running
-systemctl stop apache2 nginx 2>/dev/null || true
+systemctl stop apache2 nginx haproxy 2>/dev/null || true
 systemctl disable apache2 nginx 2>/dev/null || true
 
 # 6. Create System Directories
@@ -267,9 +267,13 @@ if [ -f /etc/shvl/shvl.conf ]; then
     sed -i "s|^DOMAIN=.*|DOMAIN=\"$DOMAIN\"|" /etc/shvl/shvl.conf 2>/dev/null || true
 fi
 
+# Pre-deploy scripts so utilities like renew-cert are immediately available
+cp -f "$PROJECT_DIR/scripts/"* /usr/local/bin/ 2>/dev/null || true
+chmod +x /usr/local/bin/* 2>/dev/null || true
+
 # 10. SSL Certificate Provisioning
 print_info "Menerbitkan sertifikat SSL untuk domain $DOMAIN..."
-/usr/local/bin/shvl cert issue >/dev/null 2>&1 || true
+/usr/local/bin/shvl cert issue || true
 
 # If certificate bundle is still missing, generate self-signed fallback immediately
 if [ ! -f /etc/shvl/shvl.pem ]; then

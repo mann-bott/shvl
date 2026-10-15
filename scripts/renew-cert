@@ -47,30 +47,66 @@ if [ ! -f /root/.acme.sh/acme.sh ]; then
     curl -s https://get.acme.sh | sh
 fi
 
-echo -e "${YELLOW}[1/4] Menghentikan sementara haproxy untuk verifikasi ACME port 80...${NC}"
-systemctl stop haproxy 2>/dev/null || true
-sleep 1
+echo -e "${YELLOW}[1/4] Menghentikan service & membebaskan port 80 dari bentrok...${NC}"
+# 1. Hentikan service web & gateway yang mungkin memakai port 80
+systemctl stop haproxy nginx apache2 caddy lighttpd 2>/dev/null || true
+systemctl disable apache2 nginx 2>/dev/null || true
 
-echo -e "${YELLOW}[2/4] Menerbitkan / memperbarui sertifikat Let's Encrypt...${NC}"
-/root/.acme.sh/acme.sh --set-default-ca --server letsencrypt >/dev/null 2>&1 || true
-
-if ! /root/.acme.sh/acme.sh --renew -d "$DOMAIN" --ecc --force; then
-    echo -e "${YELLOW}[INFO] Mencoba issue standalone ec-256...${NC}"
-    /root/.acme.sh/acme.sh --issue -d "$DOMAIN" --standalone --keylength ec-256 --force || true
+# 2. Kill proses yang menduduki port 80 dengan fuser jika tersedia
+if command -v fuser >/dev/null 2>&1; then
+    fuser -k -9 80/tcp 2>/dev/null || true
 fi
 
-echo -e "${YELLOW}[3/4] Memasang sertifikat ke direktori sistem...${NC}"
-# Copy langsung dari direktori acme.sh jika tersedia
-if [ -s "/root/.acme.sh/${DOMAIN}_ecc/fullchain.cer" ]; then
-    cp -f "/root/.acme.sh/${DOMAIN}_ecc/fullchain.cer" /etc/shvl/ssl/fullchain.pem
-    cp -f "/root/.acme.sh/${DOMAIN}_ecc/${DOMAIN}.key" /etc/shvl/ssl/privkey.pem
-elif [ -s "/root/.acme.sh/${DOMAIN}/fullchain.cer" ]; then
-    cp -f "/root/.acme.sh/${DOMAIN}/fullchain.cer" /etc/shvl/ssl/fullchain.pem
-    cp -f "/root/.acme.sh/${DOMAIN}/${DOMAIN}.key" /etc/shvl/ssl/privkey.pem
+# 3. Hentikan sisa proses haproxy yang mungkin masih menggantung
+pkill -9 -f haproxy 2>/dev/null || true
+
+# 4. Cari dan hentikan PID lain yang masih mendengarkan port 80 via ss/lsof
+if command -v ss >/dev/null 2>&1; then
+    pids_80=$(ss -tulpn 'sport = :80' 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u)
+    for p in $pids_80; do
+        [ -n "$p" ] && kill -9 "$p" 2>/dev/null || true
+    done
+fi
+if command -v lsof >/dev/null 2>&1; then
+    for p in $(lsof -ti:80 2>/dev/null || true); do
+        [ -n "$p" ] && kill -9 "$p" 2>/dev/null || true
+    done
+fi
+
+sleep 1
+
+# Verifikasi status port 80
+if command -v ss >/dev/null 2>&1 && ss -tulpn 'sport = :80' 2>/dev/null | grep -q LISTEN; then
+    echo -e "${RED}[WARNING] Port 80 masih terpakai oleh proses:${NC}"
+    ss -tulpn 'sport = :80' 2>/dev/null || true
 else
-    /root/.acme.sh/acme.sh --install-cert -d "$DOMAIN" --ecc \
-        --fullchain-file /etc/shvl/ssl/fullchain.pem \
-        --key-file /etc/shvl/ssl/privkey.pem >/dev/null 2>&1 || true
+    echo -e "${GREEN}[OK] Port 80 berhasil dibebaskan (siap untuk ACME standalone).${NC}"
+fi
+
+echo -e "\n${YELLOW}[2/4] Menerbitkan / memperbarui sertifikat SSL via acme.sh (Debug Enabled)...${NC}"
+/root/.acme.sh/acme.sh --set-default-ca --server letsencrypt --debug || true
+/root/.acme.sh/acme.sh --register-account -m "admin@${DOMAIN}" --server letsencrypt --debug 2>/dev/null || true
+
+# Gunakan flag --debug untuk melihat log verbose jika terjadi kegagalan
+if ! /root/.acme.sh/acme.sh --issue -d "$DOMAIN" --standalone --keylength ec-256 --force --debug; then
+    echo -e "\n${YELLOW}[INFO] Mencoba mode renew dengan debug...${NC}"
+    /root/.acme.sh/acme.sh --renew -d "$DOMAIN" --ecc --force --debug || true
+fi
+
+echo -e "\n${YELLOW}[3/4] Memasang sertifikat ke direktori sistem...${NC}"
+/root/.acme.sh/acme.sh --install-cert -d "$DOMAIN" --ecc \
+    --fullchain-file /etc/shvl/ssl/fullchain.pem \
+    --key-file /etc/shvl/ssl/privkey.pem --debug || true
+
+# Salin langsung dari penyimpanan acme.sh jika file tujuan belum terisi
+if [ ! -s /etc/shvl/ssl/fullchain.pem ] || [ ! -s /etc/shvl/ssl/privkey.pem ]; then
+    if [ -s "/root/.acme.sh/${DOMAIN}_ecc/fullchain.cer" ]; then
+        cp -f "/root/.acme.sh/${DOMAIN}_ecc/fullchain.cer" /etc/shvl/ssl/fullchain.pem
+        cp -f "/root/.acme.sh/${DOMAIN}_ecc/${DOMAIN}.key" /etc/shvl/ssl/privkey.pem
+    elif [ -s "/root/.acme.sh/${DOMAIN}/fullchain.cer" ]; then
+        cp -f "/root/.acme.sh/${DOMAIN}/fullchain.cer" /etc/shvl/ssl/fullchain.pem
+        cp -f "/root/.acme.sh/${DOMAIN}/${DOMAIN}.key" /etc/shvl/ssl/privkey.pem
+    fi
 fi
 
 # Validasi ukuran: jika file tidak ada atau ukuran 0 byte, buat fallback self-signed
